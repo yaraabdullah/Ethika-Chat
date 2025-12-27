@@ -35,7 +35,12 @@ python copy_resources.py --source /Users/yara/Downloads --dest ./resources
 python setup_rag.py --resources-dir ./resources
 ```
 
-3. **Start using it!** See [QUICKSTART.md](QUICKSTART.md) for detailed examples.
+3. **Test the system!** Choose one of these interfaces:
+   - **React Web Interface** (recommended): See [FRONTEND_SETUP.md](FRONTEND_SETUP.md)
+   - **Interactive CLI**: `python3 interactive_cli.py`
+   - **Command Line**: See [QUICKSTART.md](QUICKSTART.md) for examples
+
+See [TESTING.md](TESTING.md) for detailed testing guide.
 
 ## Usage
 

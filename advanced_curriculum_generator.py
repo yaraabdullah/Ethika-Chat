@@ -21,8 +21,8 @@ class AdvancedCurriculumGenerator:
         """
         self.rag = rag_system
         self.use_llm = use_llm
-        # Using Gemini 2.0 Flash Experimental (as requested) - fallback to 1.5-flash if not available
-        self.model_name = "gemini-2.0-flash-exp"
+        # Using Gemini 2.5 Flash (works on free tier!)
+        self.model_name = "gemini-2.5-flash"
         
         if use_llm:
             try:
@@ -191,8 +191,13 @@ Format as JSON with the following structure:
                 )
             )
             
-            # Extract text from response
-            content = response.text.strip()
+            # Extract text from response - handle different response formats
+            if hasattr(response, 'text'):
+                content = response.text.strip()
+            elif hasattr(response, 'candidates') and len(response.candidates) > 0:
+                content = response.candidates[0].content.parts[0].text.strip()
+            else:
+                content = str(response).strip()
             
             # Remove markdown code blocks if present
             if content.startswith("```json"):

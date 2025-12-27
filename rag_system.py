@@ -2,6 +2,7 @@
 Core RAG system for educational resource retrieval and curriculum generation.
 """
 import os
+import re
 from pathlib import Path
 from typing import List, Dict, Any, Optional
 import chromadb
@@ -192,17 +193,117 @@ class RAGSystem:
                 n_results=limit
             )
         
-        # Format results
+        # Format results with deduplication and title extraction
         formatted_results = []
+        seen_resources = {}  # For deduplication
+        
         if results['ids'] and len(results['ids'][0]) > 0:
             for i in range(len(results['ids'][0])):
-                result = {
-                    'id': results['ids'][0][i],
-                    'metadata': results['metadatas'][0][i],
-                    'document': results['documents'][0][i],
-                    'distance': results['distances'][0][i] if 'distances' in results else None
-                }
-                formatted_results.append(result)
+                metadata = results['metadatas'][0][i]
+                document = results['documents'][0][i]
+                
+                # Extract title from document if missing in metadata
+                title = metadata.get('title', '').strip() if metadata else ''
+                if not title and document:
+                    # Try multiple patterns to extract title
+                    quoted_match = re.search(r'title:\s*"([^"]+)"', document, re.IGNORECASE)
+                    if quoted_match:
+                        title = quoted_match.group(1).strip()
+                    else:
+                        title_match = re.search(r'(?:Content:\s*)?---\s*\n.*?title:\s*"([^"]+)"', document, re.IGNORECASE | re.DOTALL)
+                        if title_match:
+                            title = title_match.group(1).strip()
+                        else:
+                            title_match = re.search(r'Title:\s*([^\n]+)', document, re.IGNORECASE)
+                            if title_match:
+                                title = title_match.group(1).strip().strip('"\'')
+                
+                # Extract author from document if missing in metadata
+                author = metadata.get('author', '').strip() if metadata else ''
+                if not author and document:
+                    quoted_author = re.search(r'author:\s*"([^"]+)"', document, re.IGNORECASE)
+                    if quoted_author:
+                        author = quoted_author.group(1).strip()
+                    else:
+                        author_match = re.search(r'Author:\s*([^\n]+)', document, re.IGNORECASE)
+                        if author_match:
+                            author = author_match.group(1).strip().strip('"\'')
+                
+                # Extract target audience from document if missing or empty in metadata
+                target_audience = []
+                if metadata:
+                    ta_meta = metadata.get('target_audience', [])
+                    # Handle string format "[]" or JSON string
+                    if isinstance(ta_meta, str):
+                        if ta_meta.strip() == '[]' or ta_meta.strip() == '':
+                            target_audience = []
+                        else:
+                            try:
+                                target_audience = json.loads(ta_meta)
+                            except:
+                                target_audience = []
+                    elif isinstance(ta_meta, list):
+                        target_audience = ta_meta
+                
+                # If still empty, try to extract from document
+                if (not target_audience or len(target_audience) == 0) and document:
+                    # Try to extract YAML array format: target_audience: ["elementary", "middle_school"]
+                    audience_match = re.search(r'target_audience:\s*\[(.*?)\]', document, re.IGNORECASE | re.DOTALL)
+                    if audience_match:
+                        audience_str = audience_match.group(1)
+                        # Parse the array items
+                        audience_items = re.findall(r'"([^"]+)"', audience_str)
+                        if audience_items:
+                            target_audience = audience_items
+                
+                # Fallbacks
+                title = title or 'Untitled Resource'
+                author = author or 'Unknown Author'
+                
+                # Skip if document is None or empty (duplicate/null entries)
+                if not document or not document.strip():
+                    continue
+                
+                # Extract URL from document if missing
+                url = metadata.get('url', '').strip() if metadata else ''
+                if not url and document:
+                    url_match = re.search(r'url:\s*"([^"]+)"', document, re.IGNORECASE)
+                    if url_match:
+                        url = url_match.group(1).strip()
+                
+                # Deduplication based on file_path or title
+                file_path = metadata.get('file_path', '') if metadata else ''
+                dedup_key = file_path or title
+                
+                if dedup_key and dedup_key not in seen_resources:
+                    seen_resources[dedup_key] = True
+                    
+                    # Update metadata with extracted values
+                    if metadata:
+                        metadata['title'] = title
+                        metadata['author'] = author
+                        if url:
+                            metadata['url'] = url
+                        # Always update target_audience if we have it (extracted from document)
+                        if target_audience and len(target_audience) > 0:
+                            metadata['target_audience'] = json.dumps(target_audience) if isinstance(target_audience, list) else target_audience
+                    else:
+                        metadata = {
+                            'title': title,
+                            'author': author
+                        }
+                        if url:
+                            metadata['url'] = url
+                        if target_audience and len(target_audience) > 0:
+                            metadata['target_audience'] = json.dumps(target_audience) if isinstance(target_audience, list) else target_audience
+                    
+                    result = {
+                        'id': results['ids'][0][i],
+                        'metadata': metadata,
+                        'document': document,
+                        'distance': results['distances'][0][i] if 'distances' in results else None
+                    }
+                    formatted_results.append(result)
         
         return formatted_results
     
