@@ -109,7 +109,7 @@ def api_root():
     }
 
 
-@app.get("/health")
+@app.get("/api/health")
 def health():
     """Health check endpoint."""
     try:
