@@ -34,11 +34,11 @@ if frontend_build_path.exists():
     # Serve static files (JS, CSS, images, etc.)
     app.mount("/static", StaticFiles(directory=str(frontend_build_path / "static")), name="static")
     
-    # Serve React app for all non-API routes
+    # Serve React app for all non-API routes (must be last route)
     @app.get("/{full_path:path}")
     async def serve_react_app(full_path: str):
         # Don't serve API routes as static files
-        if full_path.startswith("api/") or full_path in ["search", "curriculum", "generate-from-prompt", "resources", "health"]:
+        if full_path.startswith("api/"):
             raise HTTPException(status_code=404, detail="Not found")
         
         # Serve index.html for all other routes (React Router)

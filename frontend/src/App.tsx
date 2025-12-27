@@ -14,7 +14,11 @@ function App() {
 
   const checkInitialization = async () => {
     try {
-      const response = await fetch('/api/health');
+      // Try /api/health first, fallback to /health for compatibility
+      let response = await fetch('/api/health');
+      if (!response.ok) {
+        response = await fetch('/health');
+      }
       if (response.ok) {
         const data = await response.json();
         setIsInitialized(true);
@@ -29,16 +33,20 @@ function App() {
   const handleInitialize = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('/api/health');
+      // Try /api/health first, fallback to /health for compatibility
+      let response = await fetch('/api/health');
+      if (!response.ok) {
+        response = await fetch('/health');
+      }
       if (response.ok) {
         const data = await response.json();
         setIsInitialized(true);
       } else {
         const errorText = await response.text();
-        alert(`Failed to connect to backend (${response.status}). Make sure the API server is running: python3 api_server.py\n\nError: ${errorText}`);
+        alert(`Failed to connect to backend (${response.status}). The server may still be starting up. Please wait a moment and try again.\n\nError: ${errorText}`);
       }
     } catch (error: any) {
-      alert(`Backend not available. Please start the API server: python3 api_server.py\n\nError: ${error.message}`);
+      alert(`Backend not available. The server may still be starting up. Please wait a moment and try again.\n\nError: ${error.message}`);
     } finally {
       setIsLoading(false);
     }
