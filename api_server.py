@@ -3,12 +3,16 @@ FastAPI server for Ethika Chat.
 """
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
+from pathlib import Path
 from rag_system import RAGSystem
 from advanced_curriculum_generator import AdvancedCurriculumGenerator
 from prompt_based_generator import PromptBasedGenerator
 import uvicorn
+import os
 
 app = FastAPI(title="Ethika Chat API", version="1.0.0")
 
@@ -72,18 +76,17 @@ class PromptRequest(BaseModel):
     use_llm: bool = True  # Set to False to skip LLM and just return curated resources
 
 
-@app.get("/")
-def root():
+@app.get("/api")
+def api_root():
     """API root endpoint."""
     return {
         "message": "Ethika Chat API",
         "endpoints": {
-            "/search": "POST - Search for resources",
-            "/curriculum": "POST - Generate curriculum (legacy)",
-            "/generate-from-prompt": "POST - Generate content from natural language prompt (ChatGPT-like)",
-            "/resources": "GET - List all resources",
-            "/health": "GET - Health check"
-        }
+            "/api/search": "POST - Search for resources",
+            "/api/curriculum": "POST - Generate curriculum (legacy)",
+            "/api/generate-from-prompt": "POST - Generate content from natural language prompt (ChatGPT-like)",
+            "/api/resources": "GET - List all resources",
+            "/api/health": "GET - Health check"
     }
 
 
@@ -98,7 +101,7 @@ def health():
         return {"status": "error", "message": str(e)}
 
 
-@app.post("/search")
+@app.post("/api/search")
 def search(request: SearchRequest):
     """
     Search for educational resources.
@@ -130,7 +133,7 @@ def search(request: SearchRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/curriculum")
+@app.post("/api/curriculum")
 def generate_curriculum(request: CurriculumRequest):
     """
     Generate a customized curriculum.
@@ -171,7 +174,7 @@ def generate_curriculum(request: CurriculumRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.get("/resources")
+@app.get("/api/resources")
 def list_resources(limit: Optional[int] = None):
     """List all resources in the database."""
     try:
@@ -185,7 +188,7 @@ def list_resources(limit: Optional[int] = None):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/generate-from-prompt")
+@app.post("/api/generate-from-prompt")
 def generate_from_prompt(request: PromptRequest):
     """
     Generate educational content from a natural language prompt.
