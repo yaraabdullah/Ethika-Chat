@@ -29,3 +29,6 @@ Thumbs.db
 curriculum_*.txt
 curriculum_*.json
 
+# Railway
+.railway/
+
