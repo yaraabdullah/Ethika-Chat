@@ -44,7 +44,7 @@ const CurriculumTab: React.FC = () => {
     setError('');
     
     try {
-      const response = await axios.post('/curriculum', {
+      const response = await axios.post('/api/curriculum', {
         institution,
         target_audience: targetAudience.split(',').map(s => s.trim()),
         topics: topics.split(',').map(s => s.trim()),

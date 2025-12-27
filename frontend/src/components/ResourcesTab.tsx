@@ -26,7 +26,7 @@ const ResourcesTab: React.FC = () => {
     setError('');
     
     try {
-      const response = await axios.get('/resources');
+      const response = await axios.get('/api/resources');
       setResources(response.data.resources || []);
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Failed to load resources');

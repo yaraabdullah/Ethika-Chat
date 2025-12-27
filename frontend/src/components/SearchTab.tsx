@@ -36,7 +36,7 @@ const SearchTab: React.FC = () => {
     setError('');
     
     try {
-      const response = await axios.post('/search', {
+      const response = await axios.post('/api/search', {
         query,
         limit,
         institution: institution || undefined,

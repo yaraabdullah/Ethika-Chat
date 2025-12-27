@@ -47,7 +47,7 @@ const PromptGenerator: React.FC = () => {
     setCurrentResult(null);
     
     try {
-      const response = await axios.post('/generate-from-prompt', {
+      const response = await axios.post('/api/generate-from-prompt', {
         prompt: prompt.trim(),
         max_tokens: 4096,
         use_llm: true  // Will automatically fallback if quota exceeded
