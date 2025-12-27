@@ -25,9 +25,10 @@ ENV/
 Thumbs.db
 
 # Output files
-*.json
-curriculum_*.txt
 curriculum_*.json
+curriculum_*.txt
+# Allow railway.json
+!railway.json
 
 # Railway
 .railway/
