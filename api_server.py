@@ -31,12 +31,56 @@ app.add_middleware(
 # Initialize RAG system (lazy loading)
 _rag_system = None
 _curriculum_generator = None
+_db_initialized = False
+
+
+def initialize_database_if_empty():
+    """Initialize database from resources directory if empty."""
+    global _db_initialized
+    if _db_initialized:
+        return
+    
+    try:
+        from pathlib import Path
+        from markdown_parser import MarkdownParser
+        
+        # Check if database is empty
+        rag = RAGSystem()
+        existing_count = len(rag.get_all_resources())
+        
+        if existing_count == 0:
+            # Database is empty, initialize from resources
+            resources_dir = Path(__file__).parent / "resources"
+            if resources_dir.exists():
+                print(f"📚 Database is empty. Initializing from {resources_dir}...")
+                parser = MarkdownParser()
+                documents = parser.parse_directory(resources_dir)
+                
+                if documents:
+                    print(f"Found {len(documents)} markdown files. Adding to database...")
+                    rag.add_documents(documents)
+                    print(f"✅ Successfully initialized database with {len(documents)} resources")
+                else:
+                    print(f"⚠️ No markdown files found in {resources_dir}")
+            else:
+                print(f"⚠️ Resources directory not found: {resources_dir}")
+        else:
+            print(f"✅ Database already contains {existing_count} resources")
+        
+        _db_initialized = True
+    except Exception as e:
+        print(f"⚠️ Error during database initialization: {e}")
+        import traceback
+        traceback.print_exc()
+        # Continue anyway - database might work without initialization
 
 
 def get_rag_system():
     """Lazy initialization of RAG system."""
     global _rag_system
     if _rag_system is None:
+        # Initialize database if empty (first time only)
+        initialize_database_if_empty()
         _rag_system = RAGSystem()
     return _rag_system
 
