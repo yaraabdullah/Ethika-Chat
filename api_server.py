@@ -106,6 +106,7 @@ def api_root():
             "/api/generate-from-prompt": "POST - Generate content from natural language prompt (ChatGPT-like)",
             "/api/resources": "GET - List all resources",
             "/api/health": "GET - Health check"
+        }
     }
 
 
