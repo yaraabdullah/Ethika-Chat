@@ -10,28 +10,47 @@ import json
 class AdvancedCurriculumGenerator:
     """Generate detailed curriculum content using RAG + LLM."""
     
-    def __init__(self, rag_system: RAGSystem, use_llm: bool = True):
+    def __init__(self, rag_system: RAGSystem, use_llm: bool = True, api_key: Optional[str] = None):
         """
         Initialize the advanced curriculum generator.
         
         Args:
             rag_system: Initialized RAGSystem instance
-            use_llm: Whether to use LLM for content generation (requires OpenAI API key)
+            use_llm: Whether to use LLM for content generation (requires Gemini API key)
+            api_key: Gemini API key (defaults to environment variable or provided key)
         """
         self.rag = rag_system
         self.use_llm = use_llm
+        # Using Gemini 2.0 Flash Experimental (as requested) - fallback to 1.5-flash if not available
+        self.model_name = "gemini-2.0-flash-exp"
         
         if use_llm:
             try:
-                from openai import OpenAI
-                api_key = os.getenv('OPENAI_API_KEY')
+                import google.generativeai as genai
+                
+                # Get API key from parameter, environment variable, or use default
                 if api_key:
-                    self.client = OpenAI(api_key=api_key)
+                    self.api_key = api_key
                 else:
-                    print("Warning: OPENAI_API_KEY not found. LLM features disabled.")
-                    self.use_llm = False
+                    self.api_key = os.getenv('GEMINI_API_KEY') or "AIzaSyDspvXPGEH1BTRK25F6hX9V2glPVIPDmgg"
+                
+                # Configure Gemini
+                genai.configure(api_key=self.api_key)
+                try:
+                    self.client = genai.GenerativeModel(self.model_name)
+                    print(f"✓ Gemini API initialized with model: {self.model_name}")
+                except Exception as model_error:
+                    # Fallback to 1.5-flash if 2.0-flash-exp is not available
+                    print(f"Warning: {self.model_name} not available, falling back to gemini-1.5-flash")
+                    self.model_name = "gemini-1.5-flash"
+                    self.client = genai.GenerativeModel(self.model_name)
+                    print(f"✓ Gemini API initialized with model: {self.model_name}")
             except ImportError:
-                print("Warning: openai package not installed. LLM features disabled.")
+                print("Warning: google-generativeai package not installed. LLM features disabled.")
+                print("Install it with: pip install google-generativeai")
+                self.use_llm = False
+            except Exception as e:
+                print(f"Warning: Error initializing Gemini API: {e}")
                 self.use_llm = False
     
     def generate_detailed_curriculum(
@@ -121,6 +140,8 @@ Create a detailed curriculum that includes:
 6. Materials Needed
 7. Additional Notes
 
+IMPORTANT: Respond ONLY with valid JSON. Do not include any markdown formatting, code blocks, or explanatory text. Just return the raw JSON object.
+
 Format as JSON with the following structure:
 {
   "overview": "...",
@@ -152,21 +173,47 @@ Format as JSON with the following structure:
 """
         
         try:
-            response = self.client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {"role": "system", "content": "You are an expert AI education curriculum designer. Always respond with valid JSON."},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.7,
-                response_format={"type": "json_object"}
+            import google.generativeai as genai
+            
+            # Create the full prompt with system instruction
+            full_prompt = f"""You are an expert AI education curriculum designer. Always respond with valid JSON only, no markdown or code blocks.
+
+{prompt}"""
+            
+            # Generate content using Gemini
+            response = self.client.generate_content(
+                full_prompt,
+                generation_config=genai.types.GenerationConfig(
+                    temperature=0.7,
+                    top_p=0.95,
+                    top_k=40,
+                    max_output_tokens=4096,
+                )
             )
             
-            content = response.choices[0].message.content
+            # Extract text from response
+            content = response.text.strip()
+            
+            # Remove markdown code blocks if present
+            if content.startswith("```json"):
+                content = content[7:]
+            elif content.startswith("```"):
+                content = content[3:]
+            if content.endswith("```"):
+                content = content[:-3]
+            content = content.strip()
+            
+            # Parse JSON
             detailed_content = json.loads(content)
             return detailed_content
+        except json.JSONDecodeError as e:
+            print(f"Error parsing JSON response: {e}")
+            print(f"Response was: {content[:500]}...")
+            return self._create_basic_content(curriculum, learning_objectives)
         except Exception as e:
             print(f"Error generating LLM content: {e}")
+            import traceback
+            traceback.print_exc()
             return self._create_basic_content(curriculum, learning_objectives)
     
     def _format_resources_for_prompt(self, resources: List[Dict[str, Any]]) -> str:

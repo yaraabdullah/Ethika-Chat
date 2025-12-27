@@ -105,7 +105,7 @@ ethika-chat/
 
 - **Vector Database**: ChromaDB (persistent, local)
 - **Embeddings**: Sentence Transformers (all-MiniLM-L6-v2)
-- **LLM Integration**: OpenAI API (optional, for advanced features)
+- **LLM Integration**: Google Gemini API (Flash 2.5, optional, for advanced features)
 - **API Framework**: FastAPI
 - **Data Format**: YAML frontmatter in Markdown
 

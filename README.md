@@ -88,7 +88,7 @@ curriculum = rag.generate_curriculum(
     duration_hours=3
 )
 
-# Generate advanced curriculum with detailed content (requires OpenAI API key)
+# Generate advanced curriculum with detailed content (uses Gemini API)
 generator = AdvancedCurriculumGenerator(rag, use_llm=True)
 detailed_curriculum = generator.generate_detailed_curriculum(
     institution="MIT",

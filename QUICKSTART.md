@@ -94,13 +94,13 @@ curl -X POST "http://localhost:8000/curriculum" \
   }'
 ```
 
-## 7. Advanced Features (with OpenAI API)
+## 7. Advanced Features (with Gemini API)
 
 For advanced curriculum generation with detailed content:
 
-1. Set your OpenAI API key:
+1. The API key is already configured by default, or you can set your Gemini API key:
 ```bash
-export OPENAI_API_KEY="your-api-key-here"
+export GEMINI_API_KEY="your-api-key-here"
 ```
 
 2. Use the advanced generator in Python:
@@ -109,7 +109,8 @@ from rag_system import RAGSystem
 from advanced_curriculum_generator import AdvancedCurriculumGenerator
 
 rag = RAGSystem()
-generator = AdvancedCurriculumGenerator(rag, use_llm=True)
+# API key is set by default, or pass it explicitly:
+generator = AdvancedCurriculumGenerator(rag, use_llm=True, api_key="your-key")
 
 curriculum = generator.generate_detailed_curriculum(
     institution="MIT",
@@ -134,5 +135,5 @@ curriculum = generator.generate_detailed_curriculum(
 
 - **No results found**: Make sure you've run `setup_rag.py` first
 - **Import errors**: Ensure all dependencies are installed: `pip install -r requirements.txt`
-- **OpenAI errors**: Check that your API key is set correctly if using advanced features
+- **Gemini API errors**: Check that your API key is set correctly if using advanced features
 
