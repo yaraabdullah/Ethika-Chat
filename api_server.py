@@ -28,6 +28,25 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Serve static files from React build (for production)
+frontend_build_path = Path(__file__).parent / "frontend" / "build"
+if frontend_build_path.exists():
+    # Serve static files (JS, CSS, images, etc.)
+    app.mount("/static", StaticFiles(directory=str(frontend_build_path / "static")), name="static")
+    
+    # Serve React app for all non-API routes
+    @app.get("/{full_path:path}")
+    async def serve_react_app(full_path: str):
+        # Don't serve API routes as static files
+        if full_path.startswith("api/") or full_path in ["search", "curriculum", "generate-from-prompt", "resources", "health"]:
+            raise HTTPException(status_code=404, detail="Not found")
+        
+        # Serve index.html for all other routes (React Router)
+        index_path = frontend_build_path / "index.html"
+        if index_path.exists():
+            return FileResponse(str(index_path))
+        raise HTTPException(status_code=404, detail="Frontend not built")
+
 # Initialize RAG system (lazy loading)
 _rag_system = None
 _curriculum_generator = None

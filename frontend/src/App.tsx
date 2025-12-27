@@ -14,7 +14,7 @@ function App() {
 
   const checkInitialization = async () => {
     try {
-      const response = await fetch('/health');
+      const response = await fetch('/api/health');
       if (response.ok) {
         const data = await response.json();
         setIsInitialized(true);
@@ -29,7 +29,7 @@ function App() {
   const handleInitialize = async () => {
     setIsLoading(true);
     try {
-      const response = await fetch('/health');
+      const response = await fetch('/api/health');
       if (response.ok) {
         const data = await response.json();
         setIsInitialized(true);
