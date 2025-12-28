@@ -30,7 +30,7 @@ class PromptBasedGenerator:
             if api_key:
                 self.api_key = api_key
             else:
-                self.api_key = os.getenv('GEMINI_API_KEY') or "AIzaSyDspvXPGEH1BTRK25F6hX9V2glPVIPDmgg"
+                self.api_key = os.getenv('GEMINI_API_KEY') or "AIzaSyDcbzxiB8WbCxDS0teU9wP-VAeBSZCxkhU"
             
             # Configure Gemini
             genai.configure(api_key=self.api_key)
