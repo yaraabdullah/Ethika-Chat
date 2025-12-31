@@ -26,11 +26,16 @@ class PromptBasedGenerator:
         try:
             import google.generativeai as genai
             
-            # Get API key from parameter, environment variable, or use default
+            # Get API key from parameter or environment variable (required)
             if api_key:
                 self.api_key = api_key
             else:
-                self.api_key = os.getenv('GEMINI_API_KEY') or "AIzaSyDcbzxiB8WbCxDS0teU9wP-VAeBSZCxkhU"
+                self.api_key = os.getenv('GEMINI_API_KEY')
+                if not self.api_key:
+                    raise ValueError(
+                        "Gemini API key not found. Please set GEMINI_API_KEY environment variable. "
+                        "For Railway: Add it in your project settings under 'Variables'."
+                    )
             
             # Configure Gemini
             genai.configure(api_key=self.api_key)
