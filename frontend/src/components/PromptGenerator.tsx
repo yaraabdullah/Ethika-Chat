@@ -69,15 +69,146 @@ const PromptGenerator: React.FC = () => {
     }
   };
 
-  const handleDownload = (content: string, prompt: string) => {
-    const dataStr = content;
-    const dataBlob = new Blob([dataStr], { type: 'text/plain' });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `content_${prompt.substring(0, 30).replace(/\s+/g, '_')}.txt`;
-    link.click();
-    URL.revokeObjectURL(url);
+  const handleDownload = async (result: GenerationResult) => {
+    try {
+      // Create a temporary container for the PDF content
+      const container = document.createElement('div');
+      container.style.padding = '40px';
+      container.style.fontFamily = 'Georgia, serif';
+      container.style.color = '#333';
+      container.style.lineHeight = '1.8';
+      container.style.maxWidth = '800px';
+      container.style.margin = '0 auto';
+      container.style.background = 'white';
+
+      // Add title
+      const title = document.createElement('h1');
+      title.textContent = 'Generated Educational Content';
+      title.style.color = '#667eea';
+      title.style.borderBottom = '3px solid #667eea';
+      title.style.paddingBottom = '10px';
+      title.style.marginBottom = '30px';
+      container.appendChild(title);
+
+      // Add prompt section
+      const promptSection = document.createElement('div');
+      promptSection.style.marginBottom = '30px';
+      promptSection.style.padding = '15px';
+      promptSection.style.background = '#f8f9fa';
+      promptSection.style.borderRadius = '5px';
+      promptSection.style.borderLeft = '4px solid #667eea';
+      const promptLabel = document.createElement('strong');
+      promptLabel.textContent = 'Original Prompt: ';
+      promptLabel.style.color = '#555';
+      promptSection.appendChild(promptLabel);
+      promptSection.appendChild(document.createTextNode(result.prompt));
+      container.appendChild(promptSection);
+
+      // Add resources info
+      const resourcesInfo = document.createElement('div');
+      resourcesInfo.style.marginBottom = '20px';
+      resourcesInfo.style.color = '#666';
+      resourcesInfo.innerHTML = `<strong>Resources Used:</strong> ${result.num_resources_used} resources from database`;
+      container.appendChild(resourcesInfo);
+
+      // Add main content (markdown rendered)
+      const contentDiv = document.createElement('div');
+      contentDiv.innerHTML = marked.parse(String(result.content || ''));
+      contentDiv.style.marginBottom = '30px';
+      // Style markdown elements
+      const style = document.createElement('style');
+      style.textContent = `
+        h1 { color: #667eea; font-size: 2em; margin-top: 30px; margin-bottom: 15px; }
+        h2 { color: #667eea; font-size: 1.5em; margin-top: 25px; margin-bottom: 12px; }
+        h3 { color: #555; font-size: 1.3em; margin-top: 20px; margin-bottom: 10px; }
+        p { margin-bottom: 15px; }
+        ul, ol { margin-bottom: 15px; padding-left: 30px; }
+        li { margin-bottom: 8px; }
+        strong { color: #333; }
+        code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: 'Courier New', monospace; }
+        pre { background: #f4f4f4; padding: 15px; border-radius: 5px; overflow-x: auto; margin-bottom: 15px; }
+        blockquote { border-left: 4px solid #667eea; padding-left: 15px; margin-left: 0; color: #666; font-style: italic; }
+        table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        th { background: #667eea; color: white; }
+      `;
+      container.appendChild(style);
+      container.appendChild(contentDiv);
+
+      // Add sources section
+      if (result.resources && result.resources.length > 0) {
+        const sourcesTitle = document.createElement('h2');
+        sourcesTitle.textContent = `📚 Sources Used in Content (${result.resources.length})`;
+        sourcesTitle.style.marginTop = '40px';
+        sourcesTitle.style.paddingTop = '20px';
+        sourcesTitle.style.borderTop = '2px solid #e0e0e0';
+        container.appendChild(sourcesTitle);
+
+        result.resources.forEach((resource) => {
+          const sourceDiv = document.createElement('div');
+          sourceDiv.style.marginBottom = '20px';
+          sourceDiv.style.padding = '15px';
+          sourceDiv.style.background = '#f8f9fa';
+          sourceDiv.style.borderRadius = '5px';
+          sourceDiv.style.borderLeft = '4px solid #667eea';
+
+          const citation = document.createElement('div');
+          citation.style.marginBottom = '10px';
+          citation.innerHTML = `<strong style="background: #667eea; color: white; padding: 5px 12px; border-radius: 4px; display: inline-block; margin-right: 10px;">${resource.citation || `[Source ${resource.number}]`}</strong><strong style="font-size: 1.1em;">${resource.title || 'Untitled Resource'}</strong>`;
+          sourceDiv.appendChild(citation);
+
+          const authorDiv = document.createElement('div');
+          authorDiv.style.color = '#666';
+          authorDiv.style.marginLeft = '10px';
+          authorDiv.innerHTML = `<strong>Author:</strong> ${resource.author || 'Unknown'}`;
+          sourceDiv.appendChild(authorDiv);
+
+          if (resource.url && resource.url.trim()) {
+            const urlDiv = document.createElement('div');
+            urlDiv.style.color = '#666';
+            urlDiv.style.marginLeft = '10px';
+            urlDiv.style.marginTop = '5px';
+            urlDiv.innerHTML = `<strong>URL:</strong> ${resource.url}`;
+            sourceDiv.appendChild(urlDiv);
+          }
+
+          container.appendChild(sourceDiv);
+        });
+      }
+
+      // Temporarily add to DOM for rendering
+      container.style.position = 'absolute';
+      container.style.left = '-9999px';
+      document.body.appendChild(container);
+
+      // Configure PDF options
+      const opt = {
+        margin: [20, 20, 20, 20],
+        filename: `content_${result.prompt.substring(0, 50).replace(/[^a-z0-9]/gi, '_')}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { 
+          scale: 2,
+          useCORS: true,
+          letterRendering: true
+        },
+        jsPDF: { 
+          unit: 'mm', 
+          format: 'a4', 
+          orientation: 'portrait',
+          compress: true
+        },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
+      };
+
+      // Generate PDF
+      await html2pdf().set(opt).from(container).save();
+
+      // Clean up
+      document.body.removeChild(container);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      alert('Failed to generate PDF. Please try again.');
+    }
   };
 
   const examplePrompts = [
@@ -191,10 +322,10 @@ const PromptGenerator: React.FC = () => {
           <div className="success" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <span>✅ Content generated successfully!</span>
             <button
-              onClick={() => handleDownload(currentResult.content, currentResult.prompt)}
+              onClick={() => handleDownload(currentResult)}
               className="btn btn-secondary"
             >
-              📥 Download
+              📥 Download PDF
             </button>
           </div>
 
@@ -299,11 +430,11 @@ const PromptGenerator: React.FC = () => {
                   <div dangerouslySetInnerHTML={{ __html: marked.parse(item.result.content ? String(item.result.content.substring(0, 1000) + (item.result.content.length > 1000 ? '...' : '')) : '') as string }} />
                 </div>
                 <button
-                  onClick={() => handleDownload(item.result.content || '', item.prompt)}
+                  onClick={() => handleDownload(item.result)}
                   className="btn btn-secondary"
                   style={{ marginTop: '1rem' }}
                 >
-                  📥 Download Full Content
+                  📥 Download PDF
                 </button>
               </div>
             </details>
