@@ -61,8 +61,6 @@ class PromptBasedGenerator:
         Returns:
             Dictionary containing generated content and retrieved resources
         """
-        import google.generativeai as genai
-        
         # Step 1: Comprehensive search for all relevant resources
         print(f"🔍 Searching database comprehensively for all relevant resources...")
         
