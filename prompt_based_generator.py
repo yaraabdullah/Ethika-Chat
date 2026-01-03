@@ -16,35 +16,33 @@ class PromptBasedGenerator:
         
         Args:
             rag_system: Initialized RAGSystem instance
-            api_key: Gemini API key (defaults to environment variable or provided key)
+            api_key: Upstage API key (defaults to environment variable or provided key)
         """
         self.rag = rag_system
-        # Use gemini-2.5-flash (works on free tier!)
-        # This is the current free tier model that actually works
-        self.model_name = "gemini-2.5-flash"
+        # Use Upstage Solar Pro model
+        self.model_name = "solar-pro"
+        self.api_base = "https://api.upstage.ai/v1/chat/completions"
         
         try:
-            import google.generativeai as genai
+            import requests
             
             # Get API key from parameter or environment variable (required)
             if api_key:
                 self.api_key = api_key
             else:
-                self.api_key = os.getenv('GEMINI_API_KEY')
+                self.api_key = os.getenv('UPSTAGE_API_KEY')
                 if not self.api_key:
                     raise ValueError(
-                        "Gemini API key not found. Please set GEMINI_API_KEY environment variable. "
+                        "Upstage API key not found. Please set UPSTAGE_API_KEY environment variable. "
                         "For Railway: Add it in your project settings under 'Variables'."
                     )
             
-            # Configure Gemini
-            genai.configure(api_key=self.api_key)
-            self.client = genai.GenerativeModel(self.model_name)
-            print(f"✓ Gemini API initialized with model: {self.model_name}")
+            self.requests = requests
+            print(f"✓ Upstage API initialized with model: {self.model_name}")
         except ImportError:
-            raise ImportError("google-generativeai package not installed. Install it with: pip install google-generativeai")
+            raise ImportError("requests package not installed. Install it with: pip install requests")
         except Exception as e:
-            raise Exception(f"Error initializing Gemini API: {e}")
+            raise Exception(f"Error initializing Upstage API: {e}")
     
     def generate_from_prompt(
         self,
@@ -294,8 +292,8 @@ IMPORTANT:
 - Make sure ALL learning objectives are fully written, ALL activities are described in detail, and the entire workshop structure is complete from start to finish
 - The output should be ready-to-use markdown that looks professional when rendered"""
 
-        # Step 4: Generate content using Gemini
-        print(f"🤖 Generating content with Gemini...")
+        # Step 4: Generate content using Upstage API
+        print(f"🤖 Generating content with Upstage API...")
         try:
             import time
             
@@ -305,38 +303,60 @@ IMPORTANT:
             
             for attempt in range(max_retries):
                 try:
-                    response = self.client.generate_content(
-                        full_prompt,
-                        generation_config=genai.types.GenerationConfig(
-                            temperature=0.7,
-                            top_p=0.95,
-                            top_k=40,
-                            max_output_tokens=8192,  # Increased for complete workshops/curriculums
-                        )
-                    )
+                    headers = {
+                        'Authorization': f'Bearer {self.api_key}',
+                        'Content-Type': 'application/json'
+                    }
                     
-                    # Handle response - newer API might return different format
-                    if hasattr(response, 'text'):
-                        generated_content = response.text.strip()
-                    elif hasattr(response, 'candidates') and len(response.candidates) > 0:
-                        generated_content = response.candidates[0].content.parts[0].text.strip()
+                    data = {
+                        'model': self.model_name,
+                        'messages': [
+                            {'role': 'user', 'content': full_prompt}
+                        ],
+                        'temperature': 0.7,
+                        'max_tokens': 8192  # Increased for complete workshops/curriculums
+                    }
+                    
+                    response = self.requests.post(self.api_base, headers=headers, json=data, timeout=120)
+                    response.raise_for_status()
+                    
+                    result = response.json()
+                    
+                    # Extract content from Upstage API response
+                    if 'choices' in result and len(result['choices']) > 0:
+                        generated_content = result['choices'][0]['message']['content'].strip()
                     else:
-                        generated_content = str(response).strip()
+                        raise Exception(f"Unexpected response format: {result}")
                     
                     break  # Success, exit retry loop
                     
+                except self.requests.exceptions.HTTPError as e:
+                    error_str = str(e)
+                    status_code = e.response.status_code if hasattr(e, 'response') else None
+                    
+                    # Handle HTTP errors
+                    if status_code == 401 or status_code == 403:
+                        raise Exception(
+                            f"🚨 API KEY ERROR: Your Upstage API key is invalid or expired (HTTP {status_code}).\n\n"
+                            "SOLUTION: Check your API key:\n"
+                            "1. Go to https://console.upstage.ai\n"
+                            "2. Navigate to API Keys section\n"
+                            "3. Copy your API key\n"
+                            "4. Update UPSTAGE_API_KEY in Railway (Variables tab) or locally\n\n"
+                            f"Original error: {error_str}"
+                        )
                 except Exception as e:
                     error_str = str(e)
                     
-                    # Check if it's a leaked API key error (403)
-                    if "403" in error_str or ("reported as leaked" in error_str.lower() or "api key was reported" in error_str.lower()):
+                    # Check if it's an authentication error (401/403)
+                    if "401" in error_str or "403" in error_str or "unauthorized" in error_str.lower():
                         raise Exception(
-                            "🚨 API KEY LEAKED: Your Gemini API key was reported as leaked and is permanently disabled.\n\n"
-                            "SOLUTION: You need to create a NEW API key:\n"
-                            "1. Go to https://aistudio.google.com/apikey\n"
-                            "2. Create a new API key\n"
-                            "3. Update GEMINI_API_KEY in Railway (Variables tab) or locally\n"
-                            "4. See FIX_API_KEY.md for detailed instructions\n\n"
+                            "🚨 API KEY ERROR: Your Upstage API key is invalid or expired.\n\n"
+                            "SOLUTION: Check your API key:\n"
+                            "1. Go to https://console.upstage.ai\n"
+                            "2. Navigate to API Keys section\n"
+                            "3. Copy your API key\n"
+                            "4. Update UPSTAGE_API_KEY in Railway (Variables tab) or locally\n\n"
                             f"Original error: {error_str}"
                         )
                     
@@ -364,7 +384,7 @@ IMPORTANT:
                                 "prompt": prompt,
                                 "llm_used": False,
                                 "quota_error": True,
-                                "note": "⚠️ LLM quota exceeded. Content generated from database resources only. Please wait a few minutes and try again for LLM-generated content, or check your quota at https://ai.dev/usage?tab=rate-limit"
+                                "note": "⚠️ LLM quota exceeded. Content generated from database resources only. Please wait a few minutes and try again for LLM-generated content, or check your quota at https://console.upstage.ai"
                             }
                     else:
                         # Not a quota error, re-raise
@@ -387,10 +407,10 @@ IMPORTANT:
         except Exception as e:
             error_str = str(e)
             
-            # Check if it's a leaked API key error (403)
-            if "403" in error_str or ("reported as leaked" in error_str.lower() or "api key was reported" in error_str.lower()):
+            # Check if it's an authentication error (401/403)
+            if "401" in error_str or "403" in error_str or "unauthorized" in error_str.lower():
                 return {
-                    "error": "🚨 API KEY LEAKED: Your Gemini API key was reported as leaked and is permanently disabled.\n\nSOLUTION: You need to create a NEW API key:\n1. Go to https://aistudio.google.com/apikey\n2. Create a new API key\n3. Update GEMINI_API_KEY in Railway (Variables tab) or locally\n4. See FIX_API_KEY.md for detailed instructions",
+                    "error": "🚨 API KEY ERROR: Your Upstage API key is invalid or expired.\n\nSOLUTION: Check your API key:\n1. Go to https://console.upstage.ai\n2. Navigate to API Keys section\n3. Copy your API key\n4. Update UPSTAGE_API_KEY in Railway (Variables tab) or locally",
                     "resources": formatted_resources,
                     "content": None
                 }

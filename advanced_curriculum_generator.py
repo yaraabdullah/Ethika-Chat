@@ -16,46 +16,38 @@ class AdvancedCurriculumGenerator:
         
         Args:
             rag_system: Initialized RAGSystem instance
-            use_llm: Whether to use LLM for content generation (requires Gemini API key)
-            api_key: Gemini API key (defaults to environment variable or provided key)
+            use_llm: Whether to use LLM for content generation (requires Upstage API key)
+            api_key: Upstage API key (defaults to environment variable or provided key)
         """
         self.rag = rag_system
         self.use_llm = use_llm
-        # Using Gemini 2.5 Flash (works on free tier!)
-        self.model_name = "gemini-2.5-flash"
+        # Using Upstage Solar Pro model
+        self.model_name = "solar-pro"
+        self.api_base = "https://api.upstage.ai/v1/chat/completions"
         
         if use_llm:
             try:
-                import google.generativeai as genai
+                import requests
                 
                 # Get API key from parameter or environment variable (required)
                 if api_key:
                     self.api_key = api_key
                 else:
-                    self.api_key = os.getenv('GEMINI_API_KEY')
+                    self.api_key = os.getenv('UPSTAGE_API_KEY')
                     if not self.api_key:
                         raise ValueError(
-                            "Gemini API key not found. Please set GEMINI_API_KEY environment variable. "
+                            "Upstage API key not found. Please set UPSTAGE_API_KEY environment variable. "
                             "For Railway: Add it in your project settings under 'Variables'."
                         )
                 
-                # Configure Gemini
-                genai.configure(api_key=self.api_key)
-                try:
-                    self.client = genai.GenerativeModel(self.model_name)
-                    print(f"✓ Gemini API initialized with model: {self.model_name}")
-                except Exception as model_error:
-                    # Fallback to 1.5-flash if 2.0-flash-exp is not available
-                    print(f"Warning: {self.model_name} not available, falling back to gemini-1.5-flash")
-                    self.model_name = "gemini-1.5-flash"
-                    self.client = genai.GenerativeModel(self.model_name)
-                    print(f"✓ Gemini API initialized with model: {self.model_name}")
+                self.requests = requests
+                print(f"✓ Upstage API initialized with model: {self.model_name}")
             except ImportError:
-                print("Warning: google-generativeai package not installed. LLM features disabled.")
-                print("Install it with: pip install google-generativeai")
+                print("Warning: requests package not installed. LLM features disabled.")
+                print("Install it with: pip install requests")
                 self.use_llm = False
             except Exception as e:
-                print(f"Warning: Error initializing Gemini API: {e}")
+                print(f"Warning: Error initializing Upstage API: {e}")
                 self.use_llm = False
     
     def generate_detailed_curriculum(
@@ -178,31 +170,36 @@ Format as JSON with the following structure:
 """
         
         try:
-            import google.generativeai as genai
-            
             # Create the full prompt with system instruction
-            full_prompt = f"""You are an expert AI education curriculum designer. Always respond with valid JSON only, no markdown or code blocks.
-
-{prompt}"""
+            system_message = "You are an expert AI education curriculum designer. Always respond with valid JSON only, no markdown or code blocks."
+            user_message = prompt
             
-            # Generate content using Gemini
-            response = self.client.generate_content(
-                full_prompt,
-                generation_config=genai.types.GenerationConfig(
-                    temperature=0.7,
-                    top_p=0.95,
-                    top_k=40,
-                    max_output_tokens=4096,
-                )
-            )
+            headers = {
+                'Authorization': f'Bearer {self.api_key}',
+                'Content-Type': 'application/json'
+            }
             
-            # Extract text from response - handle different response formats
-            if hasattr(response, 'text'):
-                content = response.text.strip()
-            elif hasattr(response, 'candidates') and len(response.candidates) > 0:
-                content = response.candidates[0].content.parts[0].text.strip()
+            data = {
+                'model': self.model_name,
+                'messages': [
+                    {'role': 'system', 'content': system_message},
+                    {'role': 'user', 'content': user_message}
+                ],
+                'temperature': 0.7,
+                'max_tokens': 4096
+            }
+            
+            # Generate content using Upstage API
+            response = self.requests.post(self.api_base, headers=headers, json=data, timeout=120)
+            response.raise_for_status()
+            
+            result = response.json()
+            
+            # Extract content from Upstage API response
+            if 'choices' in result and len(result['choices']) > 0:
+                content = result['choices'][0]['message']['content'].strip()
             else:
-                content = str(response).strip()
+                raise Exception(f"Unexpected response format: {result}")
             
             # Remove markdown code blocks if present
             if content.startswith("```json"):
@@ -223,26 +220,26 @@ Format as JSON with the following structure:
         except Exception as e:
             error_str = str(e)
             
-            # Check if it's a leaked API key error (403)
-            if "403" in error_str or ("reported as leaked" in error_str.lower() or "api key was reported" in error_str.lower()):
+            # Check if it's an authentication error (401/403)
+            if "401" in error_str or "403" in error_str or "unauthorized" in error_str.lower():
                 print("\n" + "="*60)
-                print("🚨 API KEY LEAKED ERROR")
+                print("🚨 API KEY ERROR")
                 print("="*60)
-                print("Your Gemini API key was reported as leaked and is permanently disabled.")
-                print("\nSOLUTION: Create a NEW API key:")
-                print("1. Go to https://aistudio.google.com/apikey")
-                print("2. Create a new API key")
-                print("3. Update GEMINI_API_KEY in Railway (Variables tab) or locally")
-                print("4. See FIX_API_KEY.md for detailed instructions")
+                print("Your Upstage API key is invalid or expired.")
+                print("\nSOLUTION: Check your API key:")
+                print("1. Go to https://console.upstage.ai")
+                print("2. Navigate to API Keys section")
+                print("3. Copy your API key")
+                print("4. Update UPSTAGE_API_KEY in Railway (Variables tab) or locally")
                 print("="*60 + "\n")
                 # Re-raise with helpful message
                 raise Exception(
-                    "🚨 API KEY LEAKED: Your Gemini API key was reported as leaked and is permanently disabled.\n\n"
-                    "SOLUTION: You need to create a NEW API key:\n"
-                    "1. Go to https://aistudio.google.com/apikey\n"
-                    "2. Create a new API key\n"
-                    "3. Update GEMINI_API_KEY in Railway (Variables tab) or locally\n"
-                    "4. See FIX_API_KEY.md for detailed instructions\n\n"
+                    "🚨 API KEY ERROR: Your Upstage API key is invalid or expired.\n\n"
+                    "SOLUTION: Check your API key:\n"
+                    "1. Go to https://console.upstage.ai\n"
+                    "2. Navigate to API Keys section\n"
+                    "3. Copy your API key\n"
+                    "4. Update UPSTAGE_API_KEY in Railway (Variables tab) or locally\n\n"
                     f"Original error: {error_str}"
                 )
             

@@ -10,15 +10,16 @@ NC='\033[0m'
 echo "🔒 Checking for secrets and API keys..."
 
 PATTERNS=(
-    "AIzaSy[0-9A-Za-z_-]{35}"
-    "sk-[0-9A-Za-z]{32,}"
-    "AKIA[0-9A-Z]{16}"
-    "[0-9a-zA-Z/+=]{40}"
-    "xox[baprs]-[0-9a-zA-Z-]{10,48}"
-    "ghp_[0-9a-zA-Z]{36}"
-    "ghu_[0-9a-zA-Z]{36}"
-    "gho_[0-9a-zA-Z]{36}"
-    "ghr_[0-9a-zA-Z]{76}"
+    "AIzaSy[0-9A-Za-z_-]{35}"          # Google API keys (legacy)
+    "sk-[0-9A-Za-z]{32,}"              # OpenAI API keys
+    "AKIA[0-9A-Z]{16}"                 # AWS Access Key IDs
+    "[0-9a-zA-Z/+=]{40}"               # AWS Secret Access Keys
+    "xox[baprs]-[0-9a-zA-Z-]{10,48}"  # Slack tokens
+    "ghp_[0-9a-zA-Z]{36}"              # GitHub Personal Access Token
+    "ghu_[0-9a-zA-Z]{36}"              # GitHub User-to-Server token
+    "gho_[0-9A-Za-z]{36}"              # GitHub OAuth token
+    "ghr_[0-9A-Za-z]{76}"              # GitHub Refresh token
+    "up_[0-9A-Za-z]{40,}"              # Upstage API keys (common format)
 )
 
 STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM)
