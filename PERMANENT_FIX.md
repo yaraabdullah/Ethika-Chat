@@ -5,7 +5,7 @@ This document describes the **permanent safeguards** implemented to prevent API 
 ## ✅ What's Been Implemented
 
 ### 1. Pre-commit Hook (ACTIVE PROTECTION)
-**Location**: `.git/hooks/pre-commit`
+**Location**: `.git/hooks/pre-commit` (installed from `githooks/pre-commit`)
 
 **What it does:**
 - ✅ **Automatically blocks commits** containing API keys
@@ -15,6 +15,11 @@ This document describes the **permanent safeguards** implemented to prevent API 
 - ✅ Runs automatically on every `git commit`
 
 **Status**: ✅ INSTALLED AND ACTIVE
+
+**To install/update the hook:**
+```bash
+./scripts/install-hooks.sh
+```
 
 **Test it:**
 ```bash
