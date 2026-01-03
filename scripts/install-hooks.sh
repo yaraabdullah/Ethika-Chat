@@ -98,3 +98,4 @@ echo ""
 echo "🔒 Security protection is now active!"
 echo "   The pre-commit hook will block commits containing API keys."
 
+

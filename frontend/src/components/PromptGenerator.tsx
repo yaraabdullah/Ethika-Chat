@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import { marked } from 'marked';
+// @ts-ignore - html2pdf.js doesn't have TypeScript definitions
+const html2pdf = require('html2pdf.js');
 
 interface GenerationResult {
   content: string;
@@ -113,7 +115,8 @@ const PromptGenerator: React.FC = () => {
 
       // Add main content (markdown rendered)
       const contentDiv = document.createElement('div');
-      contentDiv.innerHTML = marked.parse(String(result.content || ''));
+      const markdownContent = marked.parse(String(result.content || ''));
+      contentDiv.innerHTML = typeof markdownContent === 'string' ? markdownContent : String(markdownContent);
       contentDiv.style.marginBottom = '30px';
       // Style markdown elements
       const style = document.createElement('style');
