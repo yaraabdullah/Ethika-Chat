@@ -1,8 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import { marked } from 'marked';
-// @ts-ignore - html2pdf.js doesn't have TypeScript definitions
-const html2pdf = require('html2pdf.js');
 
 interface GenerationResult {
   content: string;
@@ -73,13 +71,25 @@ const PromptGenerator: React.FC = () => {
 
   const handleDownload = async (result: GenerationResult) => {
     try {
+      // Get prompt from result or find it in history
+      let promptText = result.prompt || '';
+      if (!promptText) {
+        const historyItem = history.find(item => item.result === result);
+        if (historyItem) {
+          promptText = historyItem.prompt;
+        }
+      }
+      if (!promptText) {
+        promptText = 'Generated Content';
+      }
+
       // Create a temporary container for the PDF content
       const container = document.createElement('div');
       container.style.padding = '40px';
       container.style.fontFamily = 'Georgia, serif';
       container.style.color = '#333';
       container.style.lineHeight = '1.8';
-      container.style.maxWidth = '800px';
+      container.style.width = '800px';
       container.style.margin = '0 auto';
       container.style.background = 'white';
 
@@ -103,7 +113,7 @@ const PromptGenerator: React.FC = () => {
       promptLabel.textContent = 'Original Prompt: ';
       promptLabel.style.color = '#555';
       promptSection.appendChild(promptLabel);
-      promptSection.appendChild(document.createTextNode(result.prompt));
+      promptSection.appendChild(document.createTextNode(promptText));
       container.appendChild(promptSection);
 
       // Add resources info
@@ -115,42 +125,46 @@ const PromptGenerator: React.FC = () => {
 
       // Add main content (markdown rendered)
       const contentDiv = document.createElement('div');
-      // marked.parse can return string or Promise, ensure we get string synchronously
       const contentToParse = String(result.content || '');
       let markdownContent: string;
       
-      // Use marked.parse with async: false to get synchronous result
-      const parsed = marked.parse(contentToParse, { async: false } as any);
-      if (typeof parsed === 'string') {
-        markdownContent = parsed;
-      } else if (parsed instanceof Promise) {
-        // If it's a Promise, await it
-        markdownContent = await parsed;
-      } else {
-        // Fallback
+      // Use marked.parse - it can return string or Promise
+      try {
+        const parsed = marked.parse(contentToParse);
+        if (typeof parsed === 'string') {
+          markdownContent = parsed;
+        } else if (parsed instanceof Promise) {
+          markdownContent = await parsed;
+        } else {
+          markdownContent = contentToParse;
+        }
+      } catch (e) {
+        console.error('Error parsing markdown:', e);
         markdownContent = contentToParse;
       }
       
       contentDiv.innerHTML = markdownContent;
       contentDiv.style.marginBottom = '30px';
-      // Style markdown elements
+      
+      // Style markdown elements - add styles directly to container
       const style = document.createElement('style');
       style.textContent = `
-        h1 { color: #667eea; font-size: 2em; margin-top: 30px; margin-bottom: 15px; }
-        h2 { color: #667eea; font-size: 1.5em; margin-top: 25px; margin-bottom: 12px; }
-        h3 { color: #555; font-size: 1.3em; margin-top: 20px; margin-bottom: 10px; }
-        p { margin-bottom: 15px; }
-        ul, ol { margin-bottom: 15px; padding-left: 30px; }
-        li { margin-bottom: 8px; }
-        strong { color: #333; }
-        code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: 'Courier New', monospace; }
-        pre { background: #f4f4f4; padding: 15px; border-radius: 5px; overflow-x: auto; margin-bottom: 15px; }
-        blockquote { border-left: 4px solid #667eea; padding-left: 15px; margin-left: 0; color: #666; font-style: italic; }
-        table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
-        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
-        th { background: #667eea; color: white; }
+        #pdf-container h1 { color: #667eea; font-size: 2em; margin-top: 30px; margin-bottom: 15px; }
+        #pdf-container h2 { color: #667eea; font-size: 1.5em; margin-top: 25px; margin-bottom: 12px; }
+        #pdf-container h3 { color: #555; font-size: 1.3em; margin-top: 20px; margin-bottom: 10px; }
+        #pdf-container p { margin-bottom: 15px; }
+        #pdf-container ul, #pdf-container ol { margin-bottom: 15px; padding-left: 30px; }
+        #pdf-container li { margin-bottom: 8px; }
+        #pdf-container strong { color: #333; }
+        #pdf-container code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; font-family: 'Courier New', monospace; }
+        #pdf-container pre { background: #f4f4f4; padding: 15px; border-radius: 5px; overflow-x: auto; margin-bottom: 15px; }
+        #pdf-container blockquote { border-left: 4px solid #667eea; padding-left: 15px; margin-left: 0; color: #666; font-style: italic; }
+        #pdf-container table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
+        #pdf-container th, #pdf-container td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        #pdf-container th { background: #667eea; color: white; }
       `;
-      container.appendChild(style);
+      container.id = 'pdf-container';
+      container.insertBefore(style, container.firstChild);
       container.appendChild(contentDiv);
 
       // Add sources section
@@ -194,20 +208,47 @@ const PromptGenerator: React.FC = () => {
         });
       }
 
-      // Temporarily add to DOM for rendering
+      // Add to DOM - position off-screen but in viewport for html2canvas
       container.style.position = 'absolute';
+      container.style.top = '0px';
       container.style.left = '-9999px';
+      container.style.width = '800px';
+      container.style.height = 'auto';
+      container.style.visibility = 'visible';
+      container.style.opacity = '1';
       document.body.appendChild(container);
+
+      // Wait for rendering - html2canvas needs content to be fully rendered
+      await new Promise(resolve => requestAnimationFrame(resolve));
+      await new Promise(resolve => requestAnimationFrame(resolve));
+      await new Promise(resolve => setTimeout(resolve, 300));
+      
+      // Verify content exists (check both textContent and innerHTML)
+      const hasText = container.textContent && container.textContent.trim().length > 0;
+      const hasHTML = container.innerHTML && container.innerHTML.trim().length > 100;
+      if (!hasText && !hasHTML) {
+        console.error('PDF container is empty!', {
+          textContent: container.textContent,
+          innerHTML: container.innerHTML.substring(0, 200),
+          contentLength: result.content?.length
+        });
+        document.body.removeChild(container);
+        alert('Error: Content is empty. Please try generating content again.');
+        return;
+      }
 
       // Configure PDF options
       const opt = {
         margin: [20, 20, 20, 20],
-        filename: `content_${result.prompt.substring(0, 50).replace(/[^a-z0-9]/gi, '_')}.pdf`,
+        filename: `content_${promptText.substring(0, 50).replace(/[^a-z0-9]/gi, '_')}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { 
           scale: 2,
           useCORS: true,
-          letterRendering: true
+          letterRendering: true,
+          logging: false,
+          width: 800,
+          height: container.scrollHeight
         },
         jsPDF: { 
           unit: 'mm', 
@@ -219,7 +260,8 @@ const PromptGenerator: React.FC = () => {
       };
 
       // Generate PDF
-      await html2pdf().set(opt).from(container).save();
+      const html2pdfLib = require('html2pdf.js');
+      await html2pdfLib().set(opt).from(container).save();
 
       // Clean up
       document.body.removeChild(container);
