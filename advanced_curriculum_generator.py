@@ -221,6 +221,31 @@ Format as JSON with the following structure:
             print(f"Response was: {content[:500]}...")
             return self._create_basic_content(curriculum, learning_objectives)
         except Exception as e:
+            error_str = str(e)
+            
+            # Check if it's a leaked API key error (403)
+            if "403" in error_str or ("reported as leaked" in error_str.lower() or "api key was reported" in error_str.lower()):
+                print("\n" + "="*60)
+                print("🚨 API KEY LEAKED ERROR")
+                print("="*60)
+                print("Your Gemini API key was reported as leaked and is permanently disabled.")
+                print("\nSOLUTION: Create a NEW API key:")
+                print("1. Go to https://aistudio.google.com/apikey")
+                print("2. Create a new API key")
+                print("3. Update GEMINI_API_KEY in Railway (Variables tab) or locally")
+                print("4. See FIX_API_KEY.md for detailed instructions")
+                print("="*60 + "\n")
+                # Re-raise with helpful message
+                raise Exception(
+                    "🚨 API KEY LEAKED: Your Gemini API key was reported as leaked and is permanently disabled.\n\n"
+                    "SOLUTION: You need to create a NEW API key:\n"
+                    "1. Go to https://aistudio.google.com/apikey\n"
+                    "2. Create a new API key\n"
+                    "3. Update GEMINI_API_KEY in Railway (Variables tab) or locally\n"
+                    "4. See FIX_API_KEY.md for detailed instructions\n\n"
+                    f"Original error: {error_str}"
+                )
+            
             print(f"Error generating LLM content: {e}")
             import traceback
             traceback.print_exc()

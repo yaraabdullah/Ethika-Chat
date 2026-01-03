@@ -328,6 +328,18 @@ IMPORTANT:
                 except Exception as e:
                     error_str = str(e)
                     
+                    # Check if it's a leaked API key error (403)
+                    if "403" in error_str or ("reported as leaked" in error_str.lower() or "api key was reported" in error_str.lower()):
+                        raise Exception(
+                            "🚨 API KEY LEAKED: Your Gemini API key was reported as leaked and is permanently disabled.\n\n"
+                            "SOLUTION: You need to create a NEW API key:\n"
+                            "1. Go to https://aistudio.google.com/apikey\n"
+                            "2. Create a new API key\n"
+                            "3. Update GEMINI_API_KEY in Railway (Variables tab) or locally\n"
+                            "4. See FIX_API_KEY.md for detailed instructions\n\n"
+                            f"Original error: {error_str}"
+                        )
+                    
                     # Check if it's a quota error
                     if "quota" in error_str.lower() or "429" in error_str:
                         if attempt < max_retries - 1:
@@ -374,6 +386,15 @@ IMPORTANT:
             }
         except Exception as e:
             error_str = str(e)
+            
+            # Check if it's a leaked API key error (403)
+            if "403" in error_str or ("reported as leaked" in error_str.lower() or "api key was reported" in error_str.lower()):
+                return {
+                    "error": "🚨 API KEY LEAKED: Your Gemini API key was reported as leaked and is permanently disabled.\n\nSOLUTION: You need to create a NEW API key:\n1. Go to https://aistudio.google.com/apikey\n2. Create a new API key\n3. Update GEMINI_API_KEY in Railway (Variables tab) or locally\n4. See FIX_API_KEY.md for detailed instructions",
+                    "resources": formatted_resources,
+                    "content": None
+                }
+            
             # If it's a quota error, return resources without LLM
             if "quota" in error_str.lower() or "429" in error_str:
                 return {
