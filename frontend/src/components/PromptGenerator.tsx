@@ -115,8 +115,23 @@ const PromptGenerator: React.FC = () => {
 
       // Add main content (markdown rendered)
       const contentDiv = document.createElement('div');
-      const markdownContent = marked.parse(String(result.content || ''));
-      contentDiv.innerHTML = typeof markdownContent === 'string' ? markdownContent : String(markdownContent);
+      // marked.parse can return string or Promise, ensure we get string synchronously
+      const contentToParse = String(result.content || '');
+      let markdownContent: string;
+      
+      // Use marked.parse with async: false to get synchronous result
+      const parsed = marked.parse(contentToParse, { async: false } as any);
+      if (typeof parsed === 'string') {
+        markdownContent = parsed;
+      } else if (parsed instanceof Promise) {
+        // If it's a Promise, await it
+        markdownContent = await parsed;
+      } else {
+        // Fallback
+        markdownContent = contentToParse;
+      }
+      
+      contentDiv.innerHTML = markdownContent;
       contentDiv.style.marginBottom = '30px';
       // Style markdown elements
       const style = document.createElement('style');
