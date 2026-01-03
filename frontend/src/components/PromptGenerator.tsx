@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import axios from 'axios';
 import { marked } from 'marked';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
 interface GenerationResult {
   content: string;
@@ -208,27 +210,30 @@ const PromptGenerator: React.FC = () => {
         });
       }
 
-      // Add to DOM - position off-screen but in viewport for html2canvas
-      container.style.position = 'absolute';
-      container.style.top = '0px';
-      container.style.left = '-9999px';
+      // Add to DOM - position off-screen but visible for html2canvas
+      container.style.position = 'fixed';
+      container.style.top = '0';
+      container.style.left = '0';
       container.style.width = '800px';
+      container.style.maxWidth = '100vw';
       container.style.height = 'auto';
       container.style.visibility = 'visible';
       container.style.opacity = '1';
+      container.style.zIndex = '-1';
+      container.style.background = 'white';
       document.body.appendChild(container);
 
-      // Wait for rendering - html2canvas needs content to be fully rendered
+      // Wait for rendering
       await new Promise(resolve => requestAnimationFrame(resolve));
       await new Promise(resolve => requestAnimationFrame(resolve));
-      await new Promise(resolve => setTimeout(resolve, 300));
+      await new Promise(resolve => setTimeout(resolve, 500));
       
-      // Verify content exists (check both textContent and innerHTML)
+      // Verify content exists
       const hasText = container.textContent && container.textContent.trim().length > 0;
       const hasHTML = container.innerHTML && container.innerHTML.trim().length > 100;
       if (!hasText && !hasHTML) {
         console.error('PDF container is empty!', {
-          textContent: container.textContent,
+          textContent: container.textContent?.substring(0, 100),
           innerHTML: container.innerHTML.substring(0, 200),
           contentLength: result.content?.length
         });
@@ -237,34 +242,46 @@ const PromptGenerator: React.FC = () => {
         return;
       }
 
-      // Configure PDF options
-      const opt = {
-        margin: [20, 20, 20, 20],
-        filename: `content_${promptText.substring(0, 50).replace(/[^a-z0-9]/gi, '_')}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { 
-          scale: 2,
-          useCORS: true,
-          letterRendering: true,
-          logging: false,
-          width: 800,
-          height: container.scrollHeight
-        },
-        jsPDF: { 
-          unit: 'mm', 
-          format: 'a4', 
-          orientation: 'portrait',
-          compress: true
-        },
-        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
-      };
+      // Use html2canvas to capture the container
+      const canvas = await html2canvas(container, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        width: container.scrollWidth,
+        height: container.scrollHeight,
+        windowWidth: container.scrollWidth,
+        windowHeight: container.scrollHeight
+      });
 
-      // Generate PDF
-      const html2pdfLib = require('html2pdf.js');
-      await html2pdfLib().set(opt).from(container).save();
-
-      // Clean up
+      // Clean up container
       document.body.removeChild(container);
+
+      // Calculate PDF dimensions (A4 in mm)
+      const imgWidth = 210; // A4 width in mm
+      const pageHeight = 297; // A4 height in mm
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      // Create PDF
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgData = canvas.toDataURL('image/png');
+
+      // Add first page
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      // Add additional pages if content is taller than one page
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      // Save PDF
+      pdf.save(`content_${promptText.substring(0, 50).replace(/[^a-z0-9]/gi, '_')}.pdf`);
     } catch (error) {
       console.error('Error generating PDF:', error);
       alert('Failed to generate PDF. Please try again.');
